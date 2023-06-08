@@ -1,0 +1,22 @@
+# https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
+
+[project]
+name = "kwix"
+dynamic = ["version"]
+dependencies = [
+	"tk",
+	"pynput>=1.7.6",
+	"pystray>=0.19.4",
+	"pygobject>=3.44.1", 
+	"pkgconfig>=1.5.5"
+]
+
+[project.scripts]
+kwix = "kwix:main"
+
+[build-system]
+requires = [ "setuptools>=64", "setuptools-git-versioning<2", ]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools-git-versioning]
+enabled = true
