@@ -3,7 +3,7 @@ import http.server
 import http.client
 import threading
 
-import kwix.logic
+import kwix.ui
 
 
 PORT=23844
@@ -17,7 +17,7 @@ def show_remote_widow(host, port):
 		pass
 		
 
-def run_server(window: kwix.logic.Window):
+def create_server(window: kwix.ui.Window):
 	class Handler(http.server.BaseHTTPRequestHandler):
 		def do_POST(self):
 			if self.path == '/show-window':
@@ -35,4 +35,4 @@ def run_server(window: kwix.logic.Window):
 			self.wfile.write(b'{"msg":"' + bytes(msg, 'UTF-8') + b'"}')
 
 	httpd = http.server.HTTPServer(('127.0.0.1', PORT), Handler)
-	threading.Thread(target = httpd.serve_forever).start()
+	return threading.Thread(target = httpd.serve_forever)

@@ -8,7 +8,8 @@ dependencies = [
 	"pynput>=1.7.6",
 	"pystray>=0.19.4",
 	"pygobject>=3.44.1", 
-	"pkgconfig>=1.5.5"
+	"pkgconfig>=1.5.5",
+	"PyYAML>=6.0"
 ]
 
 [project.scripts]

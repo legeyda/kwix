@@ -4,3 +4,12 @@
 
 
 	('clam', 'alt', 'default', 'classic')
+
+
+
+
+todo:
+	folders
+	(un)base64
+	open jks from base64
+	obsidian daily note

@@ -1,18 +1,14 @@
 import tkinter as tk
 from tkinter import ttk
-from kwix.logic import Logic, Context, Window
-
-import threading
-import queue
-
-import kwix.ui.builder
-import kwix.ui.builder.tk
-
-from kwix.util import ThreadRouter
-import kwix.logic
 
 import pkg_resources
 from PIL import Image, ImageTk
+
+import kwix
+import kwix.ui
+import kwix.ui.tk
+from kwix.util import ThreadRouter
+from kwix import ActionRegistry, Action
 
 
 def get_logo():
@@ -27,13 +23,12 @@ def run_periodically(root: tk.Tk, interval_ms: int, action):
 
 
 
-class KwixWindow(kwix.logic.Window):
+class Window(kwix.ui.Window):
 	actions = []
 
-	def __init__(self, logic: Logic):
+	def __init__(self, action_registry: ActionRegistry):
 		self._root = None
-		self._logic = logic
-		self._action_context = kwix.logic.Context(logic, self)
+		self._action_registry: ActionRegistry = action_registry
 		self._create_root()
 
 	def _create_root(self):
@@ -103,23 +98,45 @@ class KwixWindow(kwix.logic.Window):
 		window.rowconfigure(1, weight=1)
 		window.transient(self._root)
 
+		# scroller = ttk.Frame(window)
+		# scroller.grid(column = 0, row = 0)
+		# scroller.rowconfigure(0, weight = 1)
+		# scroller.columnconfigure(1, weight=1)
+		
+		#scrollbar = ttk.Scrollbar(scroller, orient = 'vertical')
+		#scrollbar.grid(row=0, column=1)
+
+
 		data = ttk.Frame(window, padding=8)
 		data.grid(column=0, row=0, sticky='nsew')
+		#data.bind("<Configure>", lambda e: canvas.configure(
+        #scrollregion=canvas.bbox("all")
+		#data = ttk.Widget(..., yscrollcommand = scrol.set)
+		# v.config(command=w.yview)
+		# https://ru.stackoverflow.com/questions/1333158/%D0%9A%D0%B0%D0%BA-%D1%80%D0%B5%D0%B0%D0%BB%D0%B8%D0%B7%D0%BE%D0%B2%D0%B0%D1%82%D1%8C-scrollbar-%D0%B4%D0%BB%D1%8F-frame
+
+
+		dialog = kwix.ui.tk.DialogBuilder(data)
+		action.action_type.create_editor(dialog)
+		dialog.read_value(action)
 
 		control = ttk.Frame(window, padding=8)
 		control.grid(column=0, row=2, sticky='nsew')
 		control.columnconfigure(0, weight=1)
 
-		ok = ttk.Button(control, text="OK")
+		def on_ok(*args):
+			dialog.update_value(action)
+			window.destroy()
+			self._on_query_entry_type()
+		window.bind('<Return>', on_ok)
+		ok = ttk.Button(control, text="OK", command = on_ok)
 		ok.grid(column=1, row=0, padx=4)
 
-		cancel = ttk.Button(control, text='Cancel')
+		def on_cancel(*args):
+			window.destroy()
+		window.bind('<Escape>', on_cancel)
+		cancel = ttk.Button(control, text='Cancel', command = on_cancel)
 		cancel.grid(column=2, row=0, padx=4)
-
-
-		dialog = kwix.ui.builder.tk.DialogBuilder(data)
-		action.action_type.create_editor(dialog)
-		dialog.read_value(action)
 
 		window.wait_visibility()
 		window.grab_set()
@@ -127,7 +144,7 @@ class KwixWindow(kwix.logic.Window):
 		window.wait_window()
 		
 
-	def _get_selected_action(self):
+	def _get_selected_action(self) -> Action | None:
 		selection = self._result_listbox.curselection()
 		if not selection:
 			return None
@@ -153,7 +170,7 @@ class KwixWindow(kwix.logic.Window):
 		# self._root.attributes('-type', 'dock')
 
 	def _on_query_entry_type(self, name = None, index = None, mode = None):
-		self._action_list = self._logic.action_search(self._search_query.get())
+		self._action_list = self._action_registry.search(self._search_query.get())
 		self._result_list.set([action.title for action in self._action_list])
 		if self._action_list:
 			self._result_listbox.select_clear(0, tk.END)
@@ -171,16 +188,84 @@ class KwixWindow(kwix.logic.Window):
 		self._search_entry.select_range(0, 'end')
 		self._root.deiconify()
 		self._root.attributes('-topmost', True)
+		self._on_query_entry_type()
 
 	def hide(self, *args):
 		self._thread_router.exec(self._root.withdraw)
 
-	def quit(self):
+	def quit(self) -> None:
 		self._thread_router.exec(self._root.destroy)
 
 	def _on_enter(self, *args):
-		action = self._get_selected_action()
+		action: Action = self._get_selected_action()
 		if action:
-			action.go(self._action_context)
+			self.hide()
+			action.run()
+
+
+
+
+
+
+
+
+class DialogEntry(kwix.ui.DialogEntry):
+	def __init__(self, label: ttk.Label, string_var: tk.StringVar):
+		self._label = label
+		self._string_var = string_var
+	def set_title(self, text: str):
+		self._label.config(text = text)
+	def get_value(self):
+		return self._string_var.get()
+	def set_value(self, value):
+		self._string_var.set(value)
+	def on_change(self, func: callable):
+		self._string_var.trace_add("write", lambda *args, **kwargs: func(self._string_var.get()))
+
+
+
+class DialogBuilder(kwix.ui.DialogBuilder):
+	def __init__(self, root: ttk.Frame):
+		super().__init__()
+		self._root = root
+		self._root.columnconfigure(0, weight=1)
+		self._widget_count = 0
+
+	def create_entry(self, title: str, on_change: callable = None) -> DialogEntry:
+		label = ttk.Label(self._root, text=title)
+		label.grid(column=0, row=self._widget_count, sticky='ew')
+		self._widget_count+=1
+
+		string_var = tk.StringVar(self._root)
+		entry = ttk.Entry(self._root, textvariable=string_var)
+		entry.grid(column=0, row=self._widget_count, sticky='ew')
+		self._widget_count += 1
+		if self._widget_count == 2:
+			entry.focus_set()
+
+		separator = ttk.Label(self._root, text='')
+		separator.grid(column=0, row=self._widget_count, sticky='ew')
+		self._widget_count+=1
+
+		result = DialogEntry(label, string_var)
+		if on_change:
+			result.on_change(on_change)
+		return result
+	
+	def create_section(self, title: str, create_dialog: callable):
+		row_frame = tk.Frame(self._root)
+		row_frame.grid(column = 0, row=self._widget_count)
+		self._widget_count+=1
+
+		content_frame = tk.Frame(row_frame)
+		content_frame.grid(column=1, row=0)
+
+		dialog_builder = DialogBuilder(content_frame)
+		create_dialog(dialog_builder)
+		self.on_read_value(dialog_builder.read_value)
+		self.on_update_value(dialog_builder.update_value)
+
+
+
 
 
