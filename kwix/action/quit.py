@@ -23,9 +23,10 @@ class QuitAction(Action):
 
 
 class Plugin(kwix.Plugin):
-	def on_before_run(self):
-		action_type = QuitActionType(self.context)
-		self.context.action_registry.add_action_type(action_type)
+	def register_action_types(self):
+		self.action_type = QuitActionType(self.context)
+		self.context.action_registry.add_action_type(self.action_type)
+	def add_actions(self):
 		def create_default_actions():
-			return [QuitAction(action_type, 'quit kwix', 'quit kwix descr')]
-		self.add_default_actions(action_type.id, create_default_actions)
+			return [QuitAction(self.action_type, 'quit kwix', 'quit kwix descr')]
+		self.add_default_actions(self.action_type.id, create_default_actions)

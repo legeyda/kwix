@@ -37,7 +37,9 @@ class Plugin:
 		if action_type_id not in action_type_ids:
 			self.context.action_registry.actions += supplier()
 
-	def on_before_run(self): ...
+	def register_action_types(self): ...
+	def add_actions(self): ...
+
 
 
 class ActionType:
@@ -85,10 +87,17 @@ class Action:
 		self.title = title
 		self.description = description or title
 
-	def match(self, query: str):
+	def match(self, query: str | None = None) -> bool:
 		if not query:
 			return True
-		return (self.title and (query in self.title)) or (self.description and (query in self.description))
+		if self.title and (query in self.title):
+			return True
+		if self.description and (query in self.description):
+			return True
+		return False
+
+	def search(self, query: str) -> list[Runnable]:
+		return [Runnable(self)] if self.match(query) else []
 
 	def run(self) -> None:
 		raise NotImplementedError()
@@ -100,6 +109,12 @@ class Action:
 			'description': self.description
 		}
 
+class Runnable:
+	def __init__(self, action: Action, title: str | None = None):
+		self.action = action
+		self.title = title or action.title
+	def run(self):
+		self.action.run()
 
 
 class ActionRegistry:
@@ -107,7 +122,6 @@ class ActionRegistry:
 		self.stor: Stor = stor
 		self.action_types: dict[str, ActionType] = {}
 		self.actions: list[Action] = []
-		self.load()
 
 	def load(self):
 		self.stor.load()
@@ -128,7 +142,7 @@ class ActionRegistry:
 		value = cast(dict[Any, Any], value)
 		if 'type' not in value:
 			raise RuntimeError('"type" expected')
-		type_id = value.type
+		type_id = value['type']
 		if type(type_id) != str:
 			raise RuntimeError(
 				'"type" expected to be str, got ' + type(type_id))
@@ -137,7 +151,7 @@ class ActionRegistry:
 		action_type: ActionType = self.action_types[type_id]
 		return action_type.action_from_config(value)
 
-	def search(self, query: str | None = None) -> list[Action]:
-		if not query:
-			return self.actions
-		return [x for x in self.actions if x.match(query)]
+	def search(self, query: str | None = None) -> list[Runnable]:
+		#[runnable for runnable in search_result for search_result in self.actions]
+
+		return [x for x in self.actions if x.search(query)]

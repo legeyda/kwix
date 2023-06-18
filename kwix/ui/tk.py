@@ -149,7 +149,7 @@ class Window(kwix.ui.Window):
 		if not selection:
 			return None
 		try:
-			return self._action_list[selection[0]]
+			return self._runnable_list[selection[0]]
 		except IndexError:
 			return None
 
@@ -170,9 +170,9 @@ class Window(kwix.ui.Window):
 		# self._root.attributes('-type', 'dock')
 
 	def _on_query_entry_type(self, name = None, index = None, mode = None):
-		self._action_list = self._action_registry.search(self._search_query.get())
-		self._result_list.set([action.title for action in self._action_list])
-		if self._action_list:
+		self._runnable_list = self._action_registry.search(self._search_query.get())
+		self._result_list.set([runnable.title for runnable in self._runnable_list])
+		if self._runnable_list:
 			self._result_listbox.select_clear(0, tk.END)
 			self._result_listbox.selection_set(0)
 		self._result_listbox.see(0)

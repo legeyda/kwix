@@ -40,8 +40,8 @@ class Machinist(Action):
 		title = title or 'type text "' + text + '"'
 		Action.__init__(self, action_type, title, description or title)
 		self.text = text
-	def match(self, query: str):
-		return Action.match(self, query) or (self.text and (query in self.text))
+	def search(self, query: str):
+		return Action.search(self, query) or (self.text and (query in self.text))
 	def run(self):
 		pynput.keyboard.Controller().type(self.text)
 	def to_config(self):
@@ -54,12 +54,14 @@ class Machinist(Action):
 
 
 class Plugin(kwix.Plugin):
-	def on_before_run(self):
-		action_type = MachinistActionType(self.context)
-		self.context.action_registry.add_action_type(action_type)
+	def register_action_types(self):
+		self.action_type = MachinistActionType(self.context)
+		self.context.action_registry.add_action_type(self.action_type)
+
+	def add_actions(self):
 		def create_default_actions() -> list[Action]:
 			return [ # todo quick hack
-					Machinist(action_type, '123', 'one two three', 'description of one two three'),
-					Machinist(action_type, '321')
+					Machinist(self.action_type, '123', 'one two three', 'description of one two three'),
+					Machinist(self.action_type, '321')
 			]
-		self.add_default_actions(action_type.id, create_default_actions)
+		self.add_default_actions(self.action_type.id, create_default_actions)

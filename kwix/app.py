@@ -69,7 +69,10 @@ class App(Context):
 	def create_window(self):
 		return kwix.ui.tk.Window(self.action_registry)
 	def on_before_run(self):
-		kwix.plugin.Dispatcher(self).on_before_run()
+		dispatcher = kwix.plugin.Dispatcher(self)
+		dispatcher.register_action_types()
+		self.action_registry.load()
+		dispatcher.add_actions()
 	
 
 
