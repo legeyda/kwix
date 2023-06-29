@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Callable, Sequence, cast
 
 from kwix.stor import Stor
-from kwix.ui import DialogBuilder
 
 
 class Conf:
@@ -30,37 +29,7 @@ class Conf:
 			result = Item(self, key)
 			self._items[key] = result
 		return result
-	def create_editor0(self, dialog_builder: DialogBuilder) -> None:
-		pass
-		# for item in self._items.values():
-		# 	entry = dialog_builder.create_entry(item._title)
-		# 	dialog_builder.on_read_value(lambda: entry.set_value(item.read()))
-		# 	dialog_builder.on_update_value(lambda: item.write(entry.set_value()))
-		# for _, scope in self._scopes:
-		# 	scope.create_editor(dialog_builder.create_section(item._title))
-	def create_editor1(self, dialog_builder: DialogBuilder) -> None:
-		pass
-		# entries = {}
-		# # dialog_builder.list_editor()
-		# for key, item in self._all_items_recursive():
-		# 	entries[key] = dialog_builder.create_entry(item._title)
 
-		# 	def create_value():
-		# 		return {key: item() for (key, item) in entries.items()}
-		# 	dialog_builder.on_create_value(create_value)
-
-		# 	def read_value(value):
-		# 		pass
-		# 	dialog_builder.on_read_value(read_value)
-
-		# 	def update_value(value):
-		# 		pass
-		# 	dialog_builder.on_update_value(update_value)
-	# def _all_items_recursive(self) -> :
-	# 	for value in self._items:
-	# 		yield value
-	# 	for scope in self._scopes:
-	# 		yield from scope._all_values_recursive()
 
 
 

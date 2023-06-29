@@ -30,6 +30,11 @@ class ThreadRouter:
 				item()
 			except Exception:
 				logging.error(traceback.format_exc())
+	
+
+
+	
+
 
 def get_data_dir() -> pathlib.Path:
 	home = pathlib.Path.home()
@@ -70,3 +75,11 @@ def get_cache_dir() -> pathlib.Path:
 
 def is_dict(obj):
 	return isinstance(obj, (dict, UserDict))
+
+def query_match(query: str, *contents: str):
+	if not query:
+		return True
+	for item in contents:
+		if item and query.lower() in item.lower():
+			return True
+	return False

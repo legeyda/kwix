@@ -1,18 +1,22 @@
 import tkinter as tk
 from tkinter import ttk
+from typing import Callable, Any, cast
 
 import pkg_resources
 from PIL import Image, ImageTk
 
+import time
 import kwix
 import kwix.ui
+from kwix import DialogBuilder, Selector, ok_text, cancel_text, DialogWidget
 import kwix.ui.tk
 from kwix.util import ThreadRouter
-from kwix import ActionRegistry, Action
+from kwix import Item, ItemSource
 
 
 def get_logo():
 	return Image.open(pkg_resources.resource_filename('kwix', 'logo.jpg'))
+
 
 def run_periodically(root: tk.Tk, interval_ms: int, action):
 	def on_timer():
@@ -21,39 +25,73 @@ def run_periodically(root: tk.Tk, interval_ms: int, action):
 	on_timer()
 
 
+class Ui(kwix.Ui):
+	def __init__(self):
+		super().__init__()
+		self.root = tk.Tk()
+		self.root.wm_iconphoto(False, ImageTk.PhotoImage(get_logo()))
+		self.root.title('Kwix!')
+		self.root.withdraw()
+	def run(self):
+		self._thread_router = ThreadRouter()
+		run_periodically(self.root, 10, self._thread_router.process)
+		self.root.mainloop()
+	def selector(self) -> kwix.Selector:
+		return Selector(self)
+	def dialog(self, create_dialog: Callable[[DialogBuilder], None]) -> None:
+		return Dialog(self, create_dialog)
+	def stop(self):
+		self._thread_router.exec(self.root.destroy)
 
 
-class Window(kwix.ui.Window):
+class ModalWindow:
+	def __init__(self, parent: Ui):
+		self.parent = parent
+		self.title = 'kwix'
+		self._create_window()
+	def _create_window(self):
+		self._window = tk.Toplevel(self.parent.root)
+		self._window.title(self.title)
+		self._window.geometry('500x200')
+		self._window.columnconfigure(0, weight=1)
+		self._window.rowconfigure(0, weight=1)
+		self._window.bind('<Escape>', cast(Any, self.hide))
+		self._window.withdraw()
+	def show(self):
+		self.parent._thread_router.exec(self._do_show)
+	def _do_show(self):
+		self._window.title(self.title)
+		self._window.deiconify()
+		self._window.focus_set()
+	def hide(self, *args):
+		self.parent._thread_router.exec(self._window.withdraw)
+
+
+
+class Selector(kwix.Selector, ModalWindow):
 	actions = []
 
-	def __init__(self, action_registry: ActionRegistry):
-		self._root = None
-		self._action_registry: ActionRegistry = action_registry
-		self._create_root()
+	def __init__(self, parent: Ui, item_source: ItemSource = ItemSource()):
+		ModalWindow.__init__(self, parent)
+		kwix.Selector.__init__(self, item_source)
+		self.result: Item | None = None
+		self._init_window()
 
-	def _create_root(self):
-		self._root = tk.Tk()
-		self._root.wm_iconphoto(False, ImageTk.PhotoImage(get_logo()))
-		self._forbid_minimize()
-		self._root.protocol("WM_DELETE_WINDOW", self.hide)
-		self._root.title('Kwix!')
-		self._root.geometry('500x200')
-		self._root.columnconfigure(0, weight=1)
-		self._root.rowconfigure(0, weight=1)
-		self._root.bind('<Escape>', self.hide)
-		self._root.bind('<Return>', self._on_enter)
+	def _init_window(self):
+		self._window.bind('<Return>', cast(Any, lambda x: self._on_enter(0)))
+		self._window.bind('<Alt-KeyPress-Return>', cast(Any, lambda x: self._on_enter(1)))
 
-		self._mainframe = ttk.Frame(self._root)
+		self._mainframe = ttk.Frame(self._window)
 		self._mainframe.grid(column=0, row=0, sticky='nsew')
 		self._mainframe.rowconfigure(1, weight=1)
 		self._mainframe.columnconfigure(0, weight=1)
 
 		self._search_query = tk.StringVar()
 		self._search_query.trace_add("write", self._on_query_entry_type)
-		self._search_entry = ttk.Entry(self._mainframe, textvariable=self._search_query)
+		self._search_entry = ttk.Entry(
+			self._mainframe, textvariable=self._search_query)
 		self._search_entry.grid(column=0, row=0, sticky='ew')
-		self._search_entry.bind('<Alt-KeyPress-Return>', lambda *args: self._edit_selected_action())
-		for key in ('<Up>', '<Down>'): 
+		for key in ('<Up>', '<Down>'):
 			self._search_entry.bind(key, self._on_search_entry_updown)
 
 		self._result_list = tk.StringVar()
@@ -61,12 +99,33 @@ class Window(kwix.ui.Window):
 			self._mainframe, listvariable=self._result_list, takefocus=False, selectmode='browse')
 		self._result_listbox.grid(column=0, row=1, sticky='nsew')
 		self._result_listbox.bind("<Button-1>", self._on_list_left_click)
-		self._result_listbox.bind('<Button-3>', self._on_list_right_click)
+		self._result_listbox.bind("<Button-3>", self._on_list_right_click)
 		self._on_query_entry_type()
+		
 
-		self._root.withdraw()
+	def _hide(self, event):
+		self._window.withdraw()
+
+	def _on_enter(self, alt: int = 0):
+		item: Item | None = self._get_selected_item()
+		if item:
+			self.parent._thread_router.exec(self._window.withdraw)
+			self._on_ok(item, alt)
+
+	def _get_selected_item(self) -> Item | None:
+		selection = self._result_listbox.curselection()
+		if not selection:
+			return None
+		try:
+			return self._item_list[selection[0]]
+		except IndexError:
+			return None
 
 	def _on_search_entry_updown(self, event):
+		if not self._result_listbox.size():
+			return
+		if not self._result_listbox.curselection():
+			self._result_listbox.selection_set(0)
 		sel = newsel = self._result_listbox.curselection()[0]
 		if 'Up' == event.keysym:
 			if sel > 0:
@@ -80,87 +139,115 @@ class Window(kwix.ui.Window):
 
 	def _on_list_left_click(self, event):
 		self._select_item_at_y_pos(event.y)
-		self._on_enter()
+		self._on_enter(0)
 
 	def _on_list_right_click(self, event):
 		self._select_item_at_y_pos(event.y)
-		self._edit_selected_action()
+		self._on_enter(1)
+
+	def _select_item_at_y_pos(self, y: int):
+		self._result_listbox.selection_clear(0, tk.END)
+		self._result_listbox.selection_set(self._result_listbox.nearest(y))
+
+	def go(self, on_ok: Callable[[Item, int | None], None] = lambda x, y: None):
+		self._on_ok = on_ok
+		self.show()
+		
+	def _do_show(self):
+		self._search_entry.select_range(0, 'end')
+		self._on_query_entry_type()
+		super()._do_show()
+		self._search_entry.focus_set()
+
+
+	def _on_query_entry_type(self, name=None, index=None, mode=None) -> None:
+		self._item_list = self.item_source.search(self._search_query.get())
+		self._result_list.set(cast(Any, [str(item) for item in self._item_list]))
+		if self._item_list:
+			self._result_listbox.select_clear(0, tk.END)
+			self._result_listbox.selection_set(0)
+		self._result_listbox.see(0)
+
+
+
+class Dialog(kwix.Dialog, ModalWindow):
+	def __init__(self, parent: Ui, create_dialog: Callable[[DialogBuilder], None]):
+		ModalWindow.__init__(self, parent)
+		kwix.Dialog.__init__(self, create_dialog)
+		self._init_window()
+	def _init_window(self):
+		self._window.bind('<Return>', cast(Any, self._ok_click))
+
+		frame = ttk.Frame(self._window, padding=8)
+		frame.grid(column=0, row=0, sticky='nsew')
+		frame.columnconfigure(0, weight=1)
+		frame.rowconfigure(0, weight=1)
+
+		data_frame = ttk.Frame(frame)
+		data_frame.grid(column=0, row=0, sticky='nsew')
+
+		self.builder = DialogBuilder(data_frame)
+		self.create_dialog(self.builder)
+
+		control_frame = ttk.Frame(frame)
+		control_frame.rowconfigure(0, weight=1)
+		control_frame.columnconfigure(0, weight=1)
+		control_frame.grid(column=0, row=1, sticky='nsew')
+
+		ok_button = ttk.Button(control_frame, text=str(ok_text), command=self._ok_click)
+		ok_button.grid(column=1, row=0, padx=4)
+
+		cancel_button = ttk.Button(control_frame, text=str(cancel_text), command=self.hide)
+		cancel_button.grid(column=2, row=0, padx=4)
+
+	def _ok_click(self, *args):
+		self.hide()
+		self._on_ok(self.builder.save(self._value))
+
+	def go(self, value: Any | None, on_ok: Callable[[Any], None] = lambda _: None) -> None:
+		self._value = value
+		self._on_ok = on_ok
+		self.builder.load(value)
+		self.show()
+		
+
+
+
+
+
+		
+
+
+class other:
 
 	def _edit_selected_action(self):
-		action = self._get_selected_action()
+		action: Action | None = self._get_selected_action()
 		if not action:
 			return
-		
+		def on_create_dialog(dialog_builder: DialogBuilder):
+			action.action_type.create_editor(dialog_builder, action)
+		self.show_modal_window(on_create_dialog)
+
+	def show_modal_window(self, on_create_dialog: Callable[[DialogBuilder], None]):
 		window = tk.Toplevel(self._root)
-		window.title(action.title + ': edit')
 		window.geometry("500x500")
 		window.columnconfigure(0, weight=1)
-		window.rowconfigure(1, weight=1)
+		window.rowconfigure(0, weight=1)
 		window.transient(self._root)
 
-		# scroller = ttk.Frame(window)
-		# scroller.grid(column = 0, row = 0)
-		# scroller.rowconfigure(0, weight = 1)
-		# scroller.columnconfigure(1, weight=1)
+		frame = ttk.Frame(window, padding=0)
+		frame.grid(column=0, row=0, sticky='nsew')
+
+		dialog = DialogBuilder(frame)
+		dialog.on_destroy(window.destroy)
+		on_create_dialog(dialog)
 		
-		#scrollbar = ttk.Scrollbar(scroller, orient = 'vertical')
-		#scrollbar.grid(row=0, column=1)
-
-
-		data = ttk.Frame(window, padding=8)
-		data.grid(column=0, row=0, sticky='nsew')
-		#data.bind("<Configure>", lambda e: canvas.configure(
-        #scrollregion=canvas.bbox("all")
-		#data = ttk.Widget(..., yscrollcommand = scrol.set)
-		# v.config(command=w.yview)
-		# https://ru.stackoverflow.com/questions/1333158/%D0%9A%D0%B0%D0%BA-%D1%80%D0%B5%D0%B0%D0%BB%D0%B8%D0%B7%D0%BE%D0%B2%D0%B0%D1%82%D1%8C-scrollbar-%D0%B4%D0%BB%D1%8F-frame
-
-
-		dialog = kwix.ui.tk.DialogBuilder(data)
-		action.action_type.create_editor(dialog)
-		dialog.read_value(action)
-
-		control = ttk.Frame(window, padding=8)
-		control.grid(column=0, row=2, sticky='nsew')
-		control.columnconfigure(0, weight=1)
-
-		def on_ok(*args):
-			dialog.update_value(action)
-			window.destroy()
-			self._on_query_entry_type()
-		window.bind('<Return>', on_ok)
-		ok = ttk.Button(control, text="OK", command = on_ok)
-		ok.grid(column=1, row=0, padx=4)
-
-		def on_cancel(*args):
-			window.destroy()
-		window.bind('<Escape>', on_cancel)
-		cancel = ttk.Button(control, text='Cancel', command = on_cancel)
-		cancel.grid(column=2, row=0, padx=4)
-
 		window.wait_visibility()
 		window.grab_set()
 		window.focus_set()
 		window.wait_window()
-		
 
-	def _get_selected_action(self) -> Action | None:
-		selection = self._result_listbox.curselection()
-		if not selection:
-			return None
-		try:
-			return self._runnable_list[selection[0]]
-		except IndexError:
-			return None
 
-	def _select_item_at_y_pos(self, y):
-		self._result_listbox.selection_clear(0,tk.END)
-		self._result_listbox.selection_set(self._result_listbox.nearest(y))
-
-	def run(self):
-		self._thread_router = ThreadRouter()
-		run_periodically(self._root, 10, self._thread_router.process)
-		self._root.mainloop()
 
 	def _forbid_minimize(self):
 		try:
@@ -169,13 +256,6 @@ class Window(kwix.ui.Window):
 			pass
 		# self._root.attributes('-type', 'dock')
 
-	def _on_query_entry_type(self, name = None, index = None, mode = None):
-		self._runnable_list = self._action_registry.search(self._search_query.get())
-		self._result_list.set([runnable.title for runnable in self._runnable_list])
-		if self._runnable_list:
-			self._result_listbox.select_clear(0, tk.END)
-			self._result_listbox.selection_set(0)
-		self._result_listbox.see(0)
 
 	def is_visible(self):
 		return self._root and self._root.winfo_viewable()
@@ -196,76 +276,50 @@ class Window(kwix.ui.Window):
 	def quit(self) -> None:
 		self._thread_router.exec(self._root.destroy)
 
-	def _on_enter(self, *args):
-		action: Action = self._get_selected_action()
-		if action:
-			self.hide()
-			action.run()
 
 
-
-
-
-
-
-
-class DialogEntry(kwix.ui.DialogEntry):
+class DialogEntry(kwix.DialogEntry):
 	def __init__(self, label: ttk.Label, string_var: tk.StringVar):
 		self._label = label
 		self._string_var = string_var
+
 	def set_title(self, text: str):
-		self._label.config(text = text)
+		self._label.config(text=text)
+
 	def get_value(self):
 		return self._string_var.get()
+
 	def set_value(self, value):
 		self._string_var.set(value)
+
 	def on_change(self, func: callable):
-		self._string_var.trace_add("write", lambda *args, **kwargs: func(self._string_var.get()))
+		self._string_var.trace_add(
+			"write", lambda *args, **kwargs: func(self._string_var.get()))
 
 
-
-class DialogBuilder(kwix.ui.DialogBuilder):
-	def __init__(self, root: ttk.Frame):
+class DialogBuilder(kwix.DialogBuilder):
+	def __init__(self, root_frame: ttk.Frame):
 		super().__init__()
-		self._root = root
-		self._root.columnconfigure(0, weight=1)
-		self._widget_count = 0
+		self._root_frame = root_frame
+		self._widget_count = 0	
 
-	def create_entry(self, title: str, on_change: callable = None) -> DialogEntry:
-		label = ttk.Label(self._root, text=title)
+	def create_entry(self, id: str, title: str) -> DialogEntry:
+		self._root_frame.columnconfigure(0, weight=1)
+
+		label = ttk.Label(self._root_frame, text=title)
 		label.grid(column=0, row=self._widget_count, sticky='ew')
-		self._widget_count+=1
+		self._widget_count += 1
 
-		string_var = tk.StringVar(self._root)
-		entry = ttk.Entry(self._root, textvariable=string_var)
+		string_var = tk.StringVar(self._root_frame)
+		entry = ttk.Entry(self._root_frame, textvariable=string_var)
 		entry.grid(column=0, row=self._widget_count, sticky='ew')
 		self._widget_count += 1
 		if self._widget_count == 2:
 			entry.focus_set()
 
-		separator = ttk.Label(self._root, text='')
-		separator.grid(column=0, row=self._widget_count, sticky='ew')
-		self._widget_count+=1
+		separator = ttk.Label(self._root_frame, text='')
+		separator.grid(
+			column=0, row=self._widget_count, sticky='ew')
+		self._widget_count += 1
 
-		result = DialogEntry(label, string_var)
-		if on_change:
-			result.on_change(on_change)
-		return result
-	
-	def create_section(self, title: str, create_dialog: callable):
-		row_frame = tk.Frame(self._root)
-		row_frame.grid(column = 0, row=self._widget_count)
-		self._widget_count+=1
-
-		content_frame = tk.Frame(row_frame)
-		content_frame.grid(column=1, row=0)
-
-		dialog_builder = DialogBuilder(content_frame)
-		create_dialog(dialog_builder)
-		self.on_read_value(dialog_builder.read_value)
-		self.on_update_value(dialog_builder.update_value)
-
-
-
-
-
+		return cast(DialogEntry, self._add_widget(id, DialogEntry(label, string_var)))

@@ -1,65 +1,69 @@
+from __future__ import annotations
+
+from typing import Callable, Type, TypeVar
+
+TypeKey = TypeVar('TypeKey')
+TypeValue = TypeVar('TypeValue')
 
 
+def setdefault(dest: dict[Type[TypeKey], Type[TypeValue]], key: Type[TypeKey], supplier: Callable[[], Type[TypeValue]]) -> TypeValue:
+	if key in dest:
+		return dest[key]
+	else:
+		value = supplier()
+		dest[key] = value
+		return value
 
 
-
-
-
-def get_current_locale():
-    pass
-
-current_locale = get_cur
-
-
-class Scope:
-    def __init__(self, key: str):
-        self._key = key
-    def gettext(self, key) -> LocalizedString:
-        return gettext(self._key + '.' + key)
-
-_scopes = {}
-
-def scope(key: str) -> Scope:
-    result = _scopes.get(key)
-    if not result:
-        result = Scope(key)
-        _scopes[key] = result
-    return result
-
-
+def get_current_locale() -> str:
+	return ''
 
 
 class Text:
-    def __init__(self, key: str, default: str = None):
-        self._key = key
-        self._default = default or key
-        self._l10ns = {}
-    def __str__(self):
-        return self._l10ns.get(current_locale, self._default)
-    def default(self, default = None):
-        self._default = default
-        return self
-    def set(self, **kwargs: dict[str, str]):
-        self._l10ns.update(kwargs)
-        return self
+	def __init__(self, key: str, default: str | None = None, **l10ns: str):
+		self._key: str = key
+		self._default: str = default or key
+		self._l10ns: dict[str, str] = l10ns
 
-_texts = {}
+	def __str__(self) -> str:
+		return self._l10ns.get(get_current_locale(), self._default)
 
-def gettext(key: str):
-    result = _strings.get(key)
-    if not result:
-        result = Text(key)
-        _texts[key] = result
-    return result
+	def default(self, default: str):
+		return Text(self._key, default, **self._l10ns)
+
+	def setup(self, **kwargs: str):
+		l10ns: dict[str, str] = {}
+		l10ns.update(self._l10ns)
+		l10ns.update(kwargs)
+		return Text(self._key, self._default, **l10ns)
+
+
+_texts: dict[str, Text] = {}
+
+
+def gettext(key: str, default: str | None = None, **l10ns: str) -> Text:
+	return setdefault(_texts, key, lambda: Text(key, default, **l10ns))
+
 
 _ = gettext
 
 
+class Scope:
+	def __init__(self, key: str):
+		self._key = key
+
+	def gettext(self, key: str) -> Text:
+		return gettext(self._key + '.' + key)
+
+
+_scopes: dict[str, Scope] = {}
+
+
+def scope(key: str) -> Scope:
+	return setdefault(_scopes, key, lambda: Scope(key))
+
 
 def test():
-    import kwix.l10n
-    scope = kwix.l10n.scope('action.machinist')
-    str(scope.gettext('text').set(
-        en_US='text',
-        ru_RU='текст',
-        de_DE='Texte'))
+	from kwix.l10n import gettext, scope, _
+	txt = _('Hello').setup(ru_RU='Привет', de_DE='Hallo')
+	print(txt)

@@ -23,7 +23,7 @@ class QuitAction(Action):
 
 
 class Plugin(kwix.Plugin):
-	def register_action_types(self):
+	def add_action_types(self):
 		self.action_type = QuitActionType(self.context)
 		self.context.action_registry.add_action_type(self.action_type)
 	def add_actions(self):
