@@ -51,6 +51,8 @@ class ModalWindow:
 		self._create_window()
 	def _create_window(self):
 		self._window = tk.Toplevel(self.parent.root)
+		# self._widow.wm_iconphoto(False, ImageTk.PhotoImage(get_logo()))
+		#self._window.transient(self.parent.root)
 		self._window.title(self.title)
 		self._window.geometry('500x200')
 		self._window.columnconfigure(0, weight=1)
@@ -154,11 +156,11 @@ class Selector(kwix.Selector, ModalWindow):
 		self.show()
 		
 	def _do_show(self):
-		self._search_entry.select_range(0, 'end')
-		self._on_query_entry_type()
 		super()._do_show()
 		self._search_entry.focus_set()
-
+		self._on_query_entry_type()
+		self._search_entry.select_range(0, 'end')
+		
 
 	def _on_query_entry_type(self, name=None, index=None, mode=None) -> None:
 		self._item_list = self.item_source.search(self._search_query.get())

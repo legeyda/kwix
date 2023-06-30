@@ -4,17 +4,16 @@ from kwix.conf import Conf
 from kwix.stor import Stor
 from typing import Any, Callable, cast, Sequence
 from kwix.l10n import _
-
+from kwix.util import Propty
 title_text = _('Title').setup(ru_RU = 'Название', de_DE='Bezeichnung')
 description_text = _('Description').setup(ru_RU = 'Описание', de_DE = 'Beschreibung')
 ok_text = _('OK')
 cancel_text = _('Cancel').setup(ru_RU='Отмена', de_DE='Abbrechen')
+unnamed_text = _('Unnamed').setup(ru_RU='Без названия', de_DU='Ohne Titel')
+
 
 class Item:
-	def __init__(self, title: str):
-		self._title = title
-	def __str__(self):
-		return self._title
+	pass
 
 class ItemSource:
 	def search(self, query: str) -> list[Item]:
@@ -31,6 +30,7 @@ class Context:
 
 
 class Plugin:
+	#context: Propty[Context] = cast(Propty[Context], Propty())
 	def __init__(self, context: Context):
 		self.context = context
 
@@ -92,9 +92,11 @@ class ActionType:
 
 class Runnable(Item):
 	def __init__(self, action: Action, title: str, func: Callable[[], None]):
-		super().__init__(title)
 		self.action = action
+		self.title = title
 		self.func = func
+	def __str__(self) -> str:
+		return str(self.title)
 	def __call__(self):
 		self.func()
 
@@ -183,6 +185,7 @@ class Ui:
 		raise NotImplementedError()
 	def stop(self) -> None:
 		raise NotImplementedError()
+
 
 class Selector:
 	def __init__(self, item_source: ItemSource = ItemSource()):

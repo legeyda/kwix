@@ -18,8 +18,9 @@ class ActionAddActionType(ActionType):
 
 class ActionTypeItem(Item):
 	def __init__(self, action_type: ActionType):
-		super().__init__(action_type.title)
 		self.action_type = action_type
+	def __str__(self) -> str:
+		return str(self.action_type.title)
 
 class ActionTypeItemSource(ItemSource):
 	def __init__(self, action_types: dict[str, ActionType]):
@@ -33,14 +34,17 @@ class ActionAddAction(Action):
 		selector.title = str(select_action_type_text)
 		selector.item_source = ActionTypeItemSource(self.action_type.context.action_registry.action_types)
 		def on_selector_ready(item: Item, alt: int):
+			selector.destroy()
 			item = cast(ActionTypeItem, item)
 			if item:
 				dialog = self.action_type.context.ui.dialog(item.action_type.create_editor)
 				def on_dialog_ready(value: Any | None) -> None:
 					if isinstance(value, Action):
 						self.action_type.context.action_registry.actions.append(value)
+						self.action_type.context.action_registry.save()
 				dialog.go(None, on_dialog_ready)
 		selector.go(on_selector_ready)
+		
 
 class Plugin(kwix.Plugin):
 	def add_action_types(self):

@@ -86,7 +86,6 @@ class App(Context):
 				dialog = self.ui.dialog(runnable.action.action_type.create_editor)
 				dialog.title = str(edit_action_text)
 				dialog.go(runnable.action)
-				dialog.destroy()
 			else:
 				cast(Runnable, result).func()
 		self.action_selector.go(on_ready)
