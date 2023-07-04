@@ -1,28 +1,20 @@
 
-from typing import Any, Sequence
-
-import kwix
-from kwix import Action, ActionType, Context
+from kwix import Action, Context
+from kwix.impl import BaseAction, BaseActionType, BasePlugin
 
 
-class QuitActionType(ActionType):
+class QuitActionType(BaseActionType):
 	def __init__(self, context: Context):
-		ActionType.__init__(self, context, 'kwix.action.quit', 'Quit Kwix')
+		super().__init__(context, 'kwix.action.quit', 'Quit Kwix')
 
-	def action_from_config(self, value: Any):
-		self._assert_config_valid(value)
-		return QuitAction(self, value.get('title'), value.get('description'))
+	def create_default_action(self, title: str, description: str | None = None) -> Action:
+		return QuitAction(self, title, description)
 
-	def create_default_actions(self) -> Sequence[Action]:
-		return [QuitAction(self, 'quit', 'quit kwix')]
-
-
-class QuitAction(Action):
-	def run(self):
+class QuitAction(BaseAction):
+	def _run(self):
 		self.action_type.context.quit()
 
-
-class Plugin(kwix.Plugin):
+class Plugin(BasePlugin):
 	def add_action_types(self):
 		self.action_type = QuitActionType(self.context)
 		self.context.action_registry.add_action_type(self.action_type)

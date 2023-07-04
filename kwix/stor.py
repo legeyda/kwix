@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from kwix.util import Propty
 import os.path
 import pathlib
 from typing import Any
@@ -8,8 +9,7 @@ import yaml
 
 
 class Stor:
-	def __init__(self, data: Any = None):
-		self.data = data
+	data = Propty({}, type=Any)
 	def load(self) -> None: ...
 	def save(self) -> None: ...
 
@@ -17,7 +17,6 @@ class Stor:
 
 class YamlFile(Stor):
 	def __init__(self, file_path: pathlib.Path):
-		super().__init__({})
 		self._file_path = file_path
 	def load(self) -> None:
 		if not os.path.exists(self._file_path):

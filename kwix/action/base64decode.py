@@ -2,36 +2,29 @@
 
 
 import base64
-from typing import Any
 
 import pyclip
 
-import kwix
-from kwix import Action, ActionType, Context
-import binascii
+from kwix import Action, Context
+from kwix.impl import BaseAction, BaseActionType, BasePlugin
 
-class Base64DecodeActionType(ActionType):
+
+class Base64DecodeActionType(BaseActionType):
 	def __init__(self, context: Context): 
-		ActionType.__init__(self, context, 'base64-decode', 'Base64 decode')
+		super().__init__(context, 'base64-decode', 'Base64 decode')
 	def create_default_action(self, title: str, description: str | None = None):
 		return Base64DecodeAction(self, title, description)
 
 
-class Base64DecodeAction(Action):
-	def _match(self, query: str | None = None) -> bool:
-		# x = pyclip.paste()
-		# if not x:
-		# 	return False
-		return super()._match(query)
+class Base64DecodeAction(BaseAction):
 	def run(self):
 		pyclip.copy(base64.b64decode(pyclip.paste()))
 
 
-class Plugin(kwix.Plugin):
+class Plugin(BasePlugin):
 	def add_action_types(self):
 		self.action_type = Base64DecodeActionType(self.context)
 		self.context.action_registry.add_action_type(self.action_type)
-
 	def add_actions(self):
 		def create_actions() -> list[Action]:
 			return [ # todo quick hack

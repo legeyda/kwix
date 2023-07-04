@@ -1,17 +1,19 @@
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable, Any, cast
+from typing import Callable, Any, cast, Sequence
 
 import pkg_resources
 from PIL import Image, ImageTk
 
 import time
+import kwix.impl
 import kwix
 import kwix.ui
-from kwix import DialogBuilder, Selector, ok_text, cancel_text, DialogWidget
+from kwix import DialogBuilder, ItemAlt, Item
 import kwix.ui.tk
 from kwix.util import ThreadRouter
 from kwix import Item, ItemSource
+from kwix.impl import EmptyItemSource, BaseSelector, ok_text, cancel_text
 
 
 def get_logo():
@@ -40,7 +42,7 @@ class Ui(kwix.Ui):
 		return Selector(self)
 	def dialog(self, create_dialog: Callable[[DialogBuilder], None]) -> None:
 		return Dialog(self, create_dialog)
-	def stop(self):
+	def destroy(self):
 		self._thread_router.exec(self.root.destroy)
 
 
@@ -67,15 +69,17 @@ class ModalWindow:
 		self._window.focus_set()
 	def hide(self, *args):
 		self.parent._thread_router.exec(self._window.withdraw)
+	def destroy(self):
+		self._window.destroy()
 
 
 
-class Selector(kwix.Selector, ModalWindow):
+class Selector(ModalWindow, BaseSelector):
 	actions = []
 
-	def __init__(self, parent: Ui, item_source: ItemSource = ItemSource()):
+	def __init__(self, parent: Ui, item_source: ItemSource = EmptyItemSource()):
 		ModalWindow.__init__(self, parent)
-		kwix.Selector.__init__(self, item_source)
+		kwix.impl.BaseSelector.__init__(self, item_source)
 		self.result: Item | None = None
 		self._init_window()
 
@@ -108,11 +112,13 @@ class Selector(kwix.Selector, ModalWindow):
 	def _hide(self, event):
 		self._window.withdraw()
 
-	def _on_enter(self, alt: int = 0):
+	def _on_enter(self, alt_index: int = -1):
 		item: Item | None = self._get_selected_item()
 		if item:
-			self.parent._thread_router.exec(self._window.withdraw)
-			self._on_ok(item, alt)
+			alts: list[ItemAlt] = item.alts
+			if alt_index >= 0 and alt_index < len(alts):
+				self.hide()
+				alts[alt_index].execute()
 
 	def _get_selected_item(self) -> Item | None:
 		selection = self._result_listbox.curselection()
@@ -145,13 +151,26 @@ class Selector(kwix.Selector, ModalWindow):
 
 	def _on_list_right_click(self, event):
 		self._select_item_at_y_pos(event.y)
-		self._on_enter(1)
+		item: Item | None = self._get_selected_item()
+		if item:
+			alts: list[ItemAlt] = item.alts
+			if len(alts) >= 0:
+				popup_menu = tk.Menu(self._result_listbox, tearoff=0)
+				popup_menu.bind("<FocusOut>", lambda event: popup_menu.destroy())
+				for alt in alts:
+					def execute(alt: ItemAlt=alt):
+						popup_menu.destroy()
+						self.hide()						
+						alt.execute()						
+					popup_menu.add_command(label = str(alt), command = execute)
+				popup_menu.tk_popup(event.x_root, event.y_root)
+					
 
 	def _select_item_at_y_pos(self, y: int):
 		self._result_listbox.selection_clear(0, tk.END)
 		self._result_listbox.selection_set(self._result_listbox.nearest(y))
 
-	def go(self, on_ok: Callable[[Item, int | None], None] = lambda x, y: None):
+	def go(self, on_ok: Callable[[Item, int | None], Sequence[ItemAlt]] = lambda x, y: []):
 		self._on_ok = on_ok
 		self.show()
 		
@@ -161,7 +180,6 @@ class Selector(kwix.Selector, ModalWindow):
 		self._on_query_entry_type()
 		self._search_entry.select_range(0, 'end')
 		
-
 	def _on_query_entry_type(self, name=None, index=None, mode=None) -> None:
 		self._item_list = self.item_source.search(self._search_query.get())
 		self._result_list.set(cast(Any, [str(item) for item in self._item_list]))
@@ -175,7 +193,7 @@ class Selector(kwix.Selector, ModalWindow):
 class Dialog(kwix.Dialog, ModalWindow):
 	def __init__(self, parent: Ui, create_dialog: Callable[[DialogBuilder], None]):
 		ModalWindow.__init__(self, parent)
-		kwix.Dialog.__init__(self, create_dialog)
+		self.create_dialog = create_dialog
 		self._init_window()
 	def _init_window(self):
 		self._window.bind('<Return>', cast(Any, self._ok_click))
@@ -212,71 +230,6 @@ class Dialog(kwix.Dialog, ModalWindow):
 		self.builder.load(value)
 		self.show()
 		
-
-
-
-
-
-		
-
-
-class other:
-
-	def _edit_selected_action(self):
-		action: Action | None = self._get_selected_action()
-		if not action:
-			return
-		def on_create_dialog(dialog_builder: DialogBuilder):
-			action.action_type.create_editor(dialog_builder, action)
-		self.show_modal_window(on_create_dialog)
-
-	def show_modal_window(self, on_create_dialog: Callable[[DialogBuilder], None]):
-		window = tk.Toplevel(self._root)
-		window.geometry("500x500")
-		window.columnconfigure(0, weight=1)
-		window.rowconfigure(0, weight=1)
-		window.transient(self._root)
-
-		frame = ttk.Frame(window, padding=0)
-		frame.grid(column=0, row=0, sticky='nsew')
-
-		dialog = DialogBuilder(frame)
-		dialog.on_destroy(window.destroy)
-		on_create_dialog(dialog)
-		
-		window.wait_visibility()
-		window.grab_set()
-		window.focus_set()
-		window.wait_window()
-
-
-
-	def _forbid_minimize(self):
-		try:
-			self._root.attributes("-toolwindow", True)
-		except:
-			pass
-		# self._root.attributes('-type', 'dock')
-
-
-	def is_visible(self):
-		return self._root and self._root.winfo_viewable()
-
-	def show(self):
-		self._thread_router.exec(self._do_show)
-
-	def _do_show(self):
-		self._search_entry.focus_set()
-		self._search_entry.select_range(0, 'end')
-		self._root.deiconify()
-		self._root.attributes('-topmost', True)
-		self._on_query_entry_type()
-
-	def hide(self, *args):
-		self._thread_router.exec(self._root.withdraw)
-
-	def quit(self) -> None:
-		self._thread_router.exec(self._root.destroy)
 
 
 

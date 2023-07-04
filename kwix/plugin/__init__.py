@@ -2,11 +2,12 @@
 import kwix
 from inspect import isclass
 
+from kwix.impl import BasePlugin
+from kwix import Context
 
-
-class Compound(kwix.Plugin):
-	def __init__(self, context: kwix.Context, *wrap: kwix.Plugin):
-		kwix.Plugin.__init__(self, context)
+class Compound(BasePlugin):
+	def __init__(self, context: Context, *wrap: kwix.Plugin):
+		super().__init__(context)
 		self.wrap = wrap
 	def add_action_types(self):
 		for plugin in self.wrap:
@@ -16,8 +17,8 @@ class Compound(kwix.Plugin):
 			plugin.add_actions()
 
 class Dispatcher(Compound):
-	def __init__(self, context: kwix.Context):
-		Compound.__init__(self, context, *self._load_plugins(context))		
+	def __init__(self, context: Context):
+		super().__init__(context, *self._load_plugins(context))		
 	def _load_plugins(self, context: kwix.Context):
 		result: list[kwix.Plugin] = []
 		for module in self._discover_modules():

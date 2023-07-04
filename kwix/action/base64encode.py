@@ -5,28 +5,22 @@ import base64
 
 import pyclip
 
-import kwix
-from kwix import Action, ActionType, Context
+from kwix import Action, Context
+from kwix.impl import BaseAction, BaseActionType, BasePlugin
 
 
-
-class Base64EncodeActionType(ActionType):
+class Base64EncodeActionType(BaseActionType):
 	def __init__(self, context: Context): 
-		ActionType.__init__(self, context, 'base64-encode', 'Base64 encode')
+		super().__init__(context, 'base64-encode', 'Base64 encode')
 	def create_default_action(self, title: str, description: str | None = None):
 		return Base64EncodeAction(self, title, description)
 
-
-class Base64EncodeAction(Action):
-	def _match(self, query: str | None = None) -> bool:
-		# if not pyclip.paste():
-		# 	return False
-		return super()._match(query)
-	def run(self):
+class Base64EncodeAction(BaseAction):
+	def _run(self):
 		pyclip.copy(base64.b64encode(pyclip.paste()))
 
 
-class Plugin(kwix.Plugin):
+class Plugin(BasePlugin):
 	def add_action_types(self):
 		self.action_type = Base64EncodeActionType(self.context)
 		self.context.action_registry.add_action_type(self.action_type)

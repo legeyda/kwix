@@ -1,177 +1,87 @@
-
 from __future__ import annotations
+
+from typing import Any, Callable
+
 from kwix.conf import Conf
-from kwix.stor import Stor
-from typing import Any, Callable, cast, Sequence
 from kwix.l10n import _
 from kwix.util import Propty
-title_text = _('Title').setup(ru_RU = 'Название', de_DE='Bezeichnung')
-description_text = _('Description').setup(ru_RU = 'Описание', de_DE = 'Beschreibung')
-ok_text = _('OK')
-cancel_text = _('Cancel').setup(ru_RU='Отмена', de_DE='Abbrechen')
-unnamed_text = _('Unnamed').setup(ru_RU='Без названия', de_DU='Ohne Titel')
 
+
+class ItemAlt:
+	def execute(self) -> None:
+		raise NotImplementedError()
 
 class Item:
-	pass
+	alts = Propty([], type=list[ItemAlt], writeable=False)
+
+		
 
 class ItemSource:
 	def search(self, query: str) -> list[Item]:
-		return []
+		raise NotImplementedError()
 
 
 class Context:
-	def __init__(self):
-		self.conf: Conf | None = None
-		self.ui: Ui | None = None
-		self.action_registry: ActionRegistry | None = None
+	conf: Propty[Conf] = Propty(writeable=False)
+	ui: Propty[Ui] = Propty(writeable=False)
+	action_registry: Propty[ActionRegistry] = Propty(writeable=False)
 	def quit(self) -> None:
-		pass
+		raise NotImplementedError()
 
 
 class Plugin:
-	#context: Propty[Context] = cast(Propty[Context], Propty())
-	def __init__(self, context: Context):
-		self.context = context
-
-	def add_default_actions(self, action_type_id: str, supplier: Callable[[], Sequence[Action]]):
-		action_type_ids: set[str] = set([action.action_type.id for action in self.context.action_registry.actions])
-		if action_type_id not in action_type_ids:
-			self.context.action_registry.actions += supplier()
-
+	context: Propty[Context] = Propty()
 	def add_action_types(self): ...
 	def add_actions(self): ...
 
 
 
 class ActionType:
-	def __init__(self, context: Context, id: str, title: str):
-		self.context = context
-		self.id = id
-		self.title = title
-
-	def create_default_action(self, title: str, description: str | None = None) -> Action:
-		raise NotImplementedError()
+	context = Propty(type = Context)
+	id = Propty(type = str)
+	title = Propty(type = str)
 
 	def action_from_config(self, value: Any) -> Action:
-		dic = self._assert_config_valid(value)
-		return self.create_default_action(dic['title'], dic.get('description'))
-
-	def _assert_config_valid(self, value: Any) -> dict[Any, Any]:
-		if type(value) != dict:
-			raise RuntimeError('json must be object, ' + value + ' given')
-		value = cast(dict[Any, Any], value)
-		if 'type' not in value:
-			raise RuntimeError('"type" must be in json object')
-		if value.get('type') != self.id:
-			raise RuntimeError('wrong type got ' +
-							   str(value.get('type')) + ', expected ' + self.id)
-		return value
-	
+		raise NotImplementedError()
 
 	def create_editor(self, builder: DialogBuilder) -> None:
-		builder.create_entry('title', str(title_text))
-		builder.create_entry('description', str(description_text))
-		def load(value: Any | None):
-			if isinstance(value, Action):
-				builder.widget('title').set_value(value.title)
-				builder.widget('description').set_value(value.description)	
-		builder.on_load(load)
-
-		def save(value: Any | None) -> Any:
-			value = value or {}
-			if isinstance(value, Action):
-				value.title = builder.widget('title').get_value()
-				value.description = builder.widget('description').get_value()
-			if isinstance(value, dict):
-				value['title'] = builder.widget('title').get_value()
-				value['description'] = builder.widget('description').get_value()
-			return value
-		builder.on_save(save)
+		raise NotImplementedError()
 
 
-class Runnable(Item):
-	def __init__(self, action: Action, title: str, func: Callable[[], None]):
-		self.action = action
-		self.title = title
-		self.func = func
-	def __str__(self) -> str:
-		return str(self.title)
-	def __call__(self):
-		self.func()
 
 class Action:
-	def __init__(self, action_type: ActionType, title: str, description: str | None = None):
-		self.action_type = action_type
-		self.title = title
-		self.description = description or title
-
-	def _match(self, query: str | None = None) -> bool:
-		if not query:
-			return True
-		if self.title and (str(query).lower() in str(self.title).lower()):
-			return True
-		if self.description and (str(query).lower() in str(self.description).lower()):
-			return True
-		return False
+	action_type = Propty(type = ActionType, writeable=False)
+	title = Propty(type = str, writeable=False)
+	description = Propty(type = str, writeable=False)
 
 	def search(self, query: str) -> list[Item]:
-		return [Runnable(self, self.title, self.run)] if self._match(query) else []
-
-	def run(self) -> None:
 		raise NotImplementedError()
 	
 	def to_config(self) -> dict[str, Any]:
-		return {
-			'type': self.action_type.id,
-			'title': self.title,
-			'description': self.description
-		}
+		raise NotImplementedError()
 
 
 
 
 
 class ActionRegistry(ItemSource):
-	def __init__(self, stor: Stor):
-		self.stor: Stor = stor
-		self.action_types: dict[str, ActionType] = {}
-		self.actions: list[Action] = []
-
-	def load(self):
-		self.stor.load()
-		self.actions = [self.action_from_config(x) for x in (self.stor.data or [])]
+	action_types: Propty[dict[str, ActionType]] = Propty({}, writeable=False)
+	actions: Propty[list[Action]] = Propty([], writeable=False)
+	
+	def load(self) -> None:
+		raise NotImplementedError()
 
 	def save(self) -> None:
-		self.stor.data = [action.to_config() for action in self.actions]
-		self.stor.save()
+		raise NotImplementedError()
 
 	def add_action_type(self, action_type: ActionType) -> None:
-		if action_type.id in self.action_types:
-			raise RuntimeError('duplicate action type id=' + action_type.id)
-		self.action_types[action_type.id] = action_type
+		raise NotImplementedError()
 
 	def action_from_config(self, value: Any) -> Action:
-		if type(value) != dict:
-			raise RuntimeError('dict expected, got ' + type(value))
-		value = cast(dict[Any, Any], value)
-		if 'type' not in value:
-			raise RuntimeError('"type" expected')
-		type_id = value['type']
-		if type(type_id) != str:
-			raise RuntimeError(
-				'"type" expected to be str, got ' + type(type_id))
-		if type_id not in self.action_types:
-			raise RuntimeError('uknown action type id=' + type_id)
-		action_type: ActionType = self.action_types[type_id]
-		return action_type.action_from_config(value)
+		raise NotImplementedError()
 
 	def search(self, query: str) -> list[Item]:
-		result: list[Item] = []
-		for action in self.actions:
-			for runnable in action.search(query):
-				result.append(runnable)
-		return result
+		raise NotImplementedError()
 
 
 
@@ -179,33 +89,33 @@ class ActionRegistry(ItemSource):
 
 
 class Ui:
+	def run(self) -> None:
+		raise NotImplementedError()
 	def selector(self) -> Selector:
 		raise NotImplementedError()
 	def dialog(self, create_dialog: Callable[[DialogBuilder], None]) -> Dialog:
 		raise NotImplementedError()
-	def stop(self) -> None:
+	def destroy(self) -> None:
 		raise NotImplementedError()
+
 
 
 class Selector:
-	def __init__(self, item_source: ItemSource = ItemSource()):
-		self.title = 'kwix'
-		self.item_source: ItemSource = item_source
-	def go(self, on_ok: Callable[[Item, int], None] = lambda x, y: None):
-		result = self.item_source.search('')
-		return result[0] if len(result)>0 else None
-	def destroy(self):
-		pass
+	title = Propty(type=str)
+	item_source = Propty(type=ItemSource)
+	def go(self) -> None:
+		raise NotImplementedError()
+	def destroy(self) -> None:
+		raise NotImplementedError()
 
 	
 class Dialog:
-	def __init__(self, create_dialog: Callable[[DialogBuilder], None]):
-		self.title = 'kwix'
-		self.create_dialog = create_dialog
+	title = Propty('kwix', type = str)
 	def go(self, value: Any | None, on_ok: Callable[[Any | None], None] = lambda x: None) -> None:
 		raise NotImplementedError()
-	def destroy(self):
-		pass
+	def destroy(self) -> None:
+		raise NotImplementedError()
+
 	
 
 class DialogWidget:
@@ -217,14 +127,6 @@ class DialogWidget:
 
 class DialogEntry(DialogWidget):
 	pass
-
-
-class DialogButton:
-	def set_title(self, value: str) -> None:
-		raise NotImplementedError()
-
-	def on_click(self, func: Callable[[], None]) -> None:
-		raise NotImplementedError()
 
 
 class DialogBuilder:
