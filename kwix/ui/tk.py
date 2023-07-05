@@ -86,7 +86,9 @@ class Selector(ModalWindow, BaseSelector):
 	def _init_window(self):
 		self._window.bind('<Return>', cast(Any, lambda x: self._on_enter(0)))
 		self._window.bind('<Alt-KeyPress-Return>', cast(Any, lambda x: self._on_enter(1)))
-		#self._window.bind('<Ctrl-F10>')
+		self._window.bind('<Control-F10>', lambda x: self._on_popup_key_press())
+		self._window.bind('<Menu>', lambda x: self._on_popup_key_press()) # menu key: name=menu, value=65383
+		
 
 		self._mainframe = ttk.Frame(self._window)
 		self._mainframe.grid(column=0, row=0, sticky='nsew')
@@ -122,11 +124,16 @@ class Selector(ModalWindow, BaseSelector):
 				alts[alt_index].execute()
 
 	def _get_selected_item(self) -> Item | None:
+		index = self._get_selected_index()
+		if index:
+			return self._item_list[index]
+		
+	def _get_selected_index(self) -> int | None:
 		selection = self._result_listbox.curselection()
 		if not selection:
 			return None
 		try:
-			return self._item_list[selection[0]]
+			return selection[0]
 		except IndexError:
 			return None
 
@@ -154,18 +161,34 @@ class Selector(ModalWindow, BaseSelector):
 		self._select_item_at_y_pos(event.y)
 		item: Item | None = self._get_selected_item()
 		if item:
-			alts: list[ItemAlt] = item.alts
-			if len(alts) >= 0:
-				popup_menu = tk.Menu(self._result_listbox, tearoff=0)
-				popup_menu.bind("<FocusOut>", lambda event: popup_menu.destroy())
-				for alt in alts:
-					def execute(alt: ItemAlt=alt):
-						popup_menu.destroy()
-						self.hide()						
-						alt.execute()						
-					popup_menu.add_command(label = str(alt), command = execute)
-				popup_menu.tk_popup(event.x_root, event.y_root)
-					
+			self._show_popup_menu(item, event.x_root, event.y_root)
+
+	def _show_popup_menu(self, item: Item, x: int, y: int) -> None:
+		alts: list[ItemAlt] = item.alts
+		if len(alts) >= 0:
+			popup_menu = tk.Menu(self._result_listbox, tearoff=0)
+			popup_menu.bind("<FocusOut>", lambda event: popup_menu.destroy())
+			for alt in alts:
+				def execute(alt: ItemAlt=alt):
+					popup_menu.destroy()
+					self.hide()						
+					alt.execute()						
+				popup_menu.add_command(label = str(alt), command = execute)
+			popup_menu.tk_popup(x, y)
+
+	def _on_popup_key_press(self):
+		item: Item | None = self._get_selected_item()
+		if item:
+			x: int = int((int(self._result_listbox.winfo_rootx()) + int(self._result_listbox.winfo_width())/3))
+
+			selected_index: int | None = self._get_selected_index()
+			if selected_index:
+				coords: tuple[int, int, int, int] = self._result_listbox.bbox(selected_index)
+				y: int = int(self._result_listbox.winfo_rooty() + (coords[1] + coords[3]/2))
+			else:
+				y: int = int((int(self._result_listbox.winfo_rooty()) + int(self._result_listbox.winfo_height())/3))
+			self._show_popup_menu(item, x, y)
+
 
 	def _select_item_at_y_pos(self, y: int):
 		self._result_listbox.selection_clear(0, tk.END)
