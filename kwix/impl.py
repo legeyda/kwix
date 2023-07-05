@@ -34,21 +34,10 @@ class BaseItemAlt(kwix.ItemAlt, WithTitleStr):
 	def execute(self):
 		return self._command()
 
-
-
 class BaseItem(kwix.Item, WithTitleStr):
 	def __init__(self, title: Any, alts: list[kwix.ItemAlt]):
 		WithTitleStr.__init__(self, title)
 		self._alts = alts
-
-class BaseSigleAltItem(BaseItem):
-	def __init__(self, title: Any, command: Callable[[], None]):
-		super().__init__(title, [BaseItemAlt(execute_text, command)])
-
-
-# class FixedItemSource(kwix.ItemSource):
-# 	def __init__(self, items: list[kwix.Item]):
-# 		self._items = items
 
 class FuncItemSource(kwix.ItemSource):
 	def __init__(self, func: Callable[[str], list[kwix.Item]]):
@@ -60,6 +49,21 @@ class EmptyItemSource(kwix.ItemSource):
 	def search(self, query: str) -> list[kwix.Item]:
 		return []
 
+
+
+class BasePlugin(kwix.Plugin):
+	def __init__(self, context: kwix.Context):
+		self.context = context
+
+	def add_default_actions(self, action_type_id: str, supplier: Callable[[], Sequence[Action]]):
+		action_type_ids: set[str] = set([action.action_type.id for action in self.context.action_registry.actions])
+		if action_type_id not in action_type_ids:
+			self.context.action_registry.actions += supplier()
+
+
+
+
+
 class BaseSelector(kwix.Selector):
 	title = Propty(unnamed_text)
 	item_source: Propty[kwix.ItemSource] = cast(Propty[kwix.ItemSource], Propty(EmptyItemSource()))
@@ -70,12 +74,49 @@ class BaseSelector(kwix.Selector):
 
 
 	
+class BaseActionType(ActionType):
+	def __init__(self, context: kwix.Context, id: str, title: str):
+		self.context = context
+		self.id = id
+		self.title = title
 
-class ActionSingleAltItem(BaseItem):
-	def __init__(self, title: Any, command: Callable[[], None]):
-		BaseItem.__init__(self, title, cast(list[kwix.ItemAlt], [BaseItemAlt(execute_text, command)]))
+	def create_default_action(self, title: str, description: str | None = None) -> Action:
+		raise NotImplementedError()
+
+	def action_from_config(self, value: Any) -> Action:
+		dic = self._assert_config_valid(value)
+		return self.create_default_action(dic['title'], dic.get('description'))
+
+	def _assert_config_valid(self, value: Any) -> dict[Any, Any]:
+		if type(value) != dict:
+			raise RuntimeError('json must be object, ' + value + ' given')
+		value = cast(dict[Any, Any], value)
+		if 'type' not in value:
+			raise RuntimeError('"type" must be in json object')
+		if value.get('type') != self.id:
+			raise RuntimeError('wrong type got ' +
+							   str(value.get('type')) + ', expected ' + self.id)
+		return value
 	
+	def create_editor(self, builder: kwix.DialogBuilder) -> None:
+		builder.create_entry('title', str(title_text))
+		builder.create_entry('description', str(description_text))
+		def load(value: Any | None):
+			if isinstance(value, Action):
+				builder.widget('title').set_value(value.title)
+				builder.widget('description').set_value(value.description)	
+		builder.on_load(load)
 
+		def save(value: Any | None) -> Any:
+			value = value or {}
+			if isinstance(value, Action):
+				value.title = builder.widget('title').get_value()
+				value.description = builder.widget('description').get_value()
+			if isinstance(value, dict):
+				value['title'] = builder.widget('title').get_value()
+				value['description'] = builder.widget('description').get_value()
+			return value
+		builder.on_save(save)
 
 class BaseAction(Action):
 	def __init__(self, action_type: ActionType, title: str, description: str | None = None):
@@ -103,7 +144,6 @@ class BaseAction(Action):
 			'title': self.title,
 			'description': self.description
 		}
-
 
 class BaseActionRegistry(kwix.ActionRegistry):
 
@@ -146,59 +186,3 @@ class BaseActionRegistry(kwix.ActionRegistry):
 		return result
 
 
-class BasePlugin(kwix.Plugin):
-	def __init__(self, context: kwix.Context):
-		self.context = context
-
-	def add_default_actions(self, action_type_id: str, supplier: Callable[[], Sequence[Action]]):
-		action_type_ids: set[str] = set([action.action_type.id for action in self.context.action_registry.actions])
-		if action_type_id not in action_type_ids:
-			self.context.action_registry.actions += supplier()
-
-
-
-
-class BaseActionType(ActionType):
-	def __init__(self, context: kwix.Context, id: str, title: str):
-		self.context = context
-		self.id = id
-		self.title = title
-
-	def create_default_action(self, title: str, description: str | None = None) -> Action:
-		raise NotImplementedError()
-
-	def action_from_config(self, value: Any) -> Action:
-		dic = self._assert_config_valid(value)
-		return self.create_default_action(dic['title'], dic.get('description'))
-
-	def _assert_config_valid(self, value: Any) -> dict[Any, Any]:
-		if type(value) != dict:
-			raise RuntimeError('json must be object, ' + value + ' given')
-		value = cast(dict[Any, Any], value)
-		if 'type' not in value:
-			raise RuntimeError('"type" must be in json object')
-		if value.get('type') != self.id:
-			raise RuntimeError('wrong type got ' +
-							   str(value.get('type')) + ', expected ' + self.id)
-		return value
-	
-
-	def create_editor(self, builder: kwix.DialogBuilder) -> None:
-		builder.create_entry('title', str(title_text))
-		builder.create_entry('description', str(description_text))
-		def load(value: Any | None):
-			if isinstance(value, Action):
-				builder.widget('title').set_value(value.title)
-				builder.widget('description').set_value(value.description)	
-		builder.on_load(load)
-
-		def save(value: Any | None) -> Any:
-			value = value or {}
-			if isinstance(value, Action):
-				value.title = builder.widget('title').get_value()
-				value.description = builder.widget('description').get_value()
-			if isinstance(value, dict):
-				value['title'] = builder.widget('title').get_value()
-				value['description'] = builder.widget('description').get_value()
-			return value
-		builder.on_save(save)

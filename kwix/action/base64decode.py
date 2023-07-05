@@ -17,7 +17,7 @@ class Base64DecodeActionType(BaseActionType):
 
 
 class Base64DecodeAction(BaseAction):
-	def run(self):
+	def _run(self):
 		pyclip.copy(base64.b64decode(pyclip.paste()))
 
 

@@ -49,7 +49,7 @@ class Machinist(BaseAction):
 		if query_match(query, self.text):
 			return True
 		return BaseAction._match(self, query)
-	def run(self):
+	def _run(self):
 		pynput.keyboard.Controller().type(self.text)
 	def to_config(self):
 		result = BaseAction.to_config(self)

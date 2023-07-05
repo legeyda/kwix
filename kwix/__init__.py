@@ -14,11 +14,10 @@ class ItemAlt:
 class Item:
 	alts = Propty([], type=list[ItemAlt], writeable=False)
 
-		
-
 class ItemSource:
 	def search(self, query: str) -> list[Item]:
 		raise NotImplementedError()
+
 
 
 class Context:
@@ -27,7 +26,6 @@ class Context:
 	action_registry: Propty[ActionRegistry] = Propty(writeable=False)
 	def quit(self) -> None:
 		raise NotImplementedError()
-
 
 class Plugin:
 	context: Propty[Context] = Propty()
@@ -47,22 +45,16 @@ class ActionType:
 	def create_editor(self, builder: DialogBuilder) -> None:
 		raise NotImplementedError()
 
-
-
 class Action:
-	action_type = Propty(type = ActionType, writeable=False)
-	title = Propty(type = str, writeable=False)
-	description = Propty(type = str, writeable=False)
+	action_type = Propty(type = ActionType)
+	title = Propty(type = str)
+	description = Propty(type = str)
 
 	def search(self, query: str) -> list[Item]:
 		raise NotImplementedError()
 	
 	def to_config(self) -> dict[str, Any]:
 		raise NotImplementedError()
-
-
-
-
 
 class ActionRegistry(ItemSource):
 	action_types: Propty[dict[str, ActionType]] = Propty({}, writeable=False)
@@ -87,7 +79,6 @@ class ActionRegistry(ItemSource):
 
 
 
-
 class Ui:
 	def run(self) -> None:
 		raise NotImplementedError()
@@ -98,8 +89,6 @@ class Ui:
 	def destroy(self) -> None:
 		raise NotImplementedError()
 
-
-
 class Selector:
 	title = Propty(type=str)
 	item_source = Propty(type=ItemSource)
@@ -107,7 +96,6 @@ class Selector:
 		raise NotImplementedError()
 	def destroy(self) -> None:
 		raise NotImplementedError()
-
 	
 class Dialog:
 	title = Propty('kwix', type = str)
@@ -115,8 +103,6 @@ class Dialog:
 		raise NotImplementedError()
 	def destroy(self) -> None:
 		raise NotImplementedError()
-
-	
 
 class DialogWidget:
 	def get_value(self) -> str:
@@ -127,7 +113,6 @@ class DialogWidget:
 
 class DialogEntry(DialogWidget):
 	pass
-
 
 class DialogBuilder:
 	def __init__(self):

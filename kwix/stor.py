@@ -29,4 +29,4 @@ class YamlFile(Stor):
 		if not os.path.exists(dir_path):
 			os.makedirs(dir_path)
 		with open(self._file_path, 'w') as out:
-			yaml.dump(self.data, out, default_flow_style=False)
+			yaml.dump(self.data, out, default_flow_style=False, allow_unicode=True)

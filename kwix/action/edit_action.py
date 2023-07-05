@@ -28,7 +28,7 @@ class ActionTypeItemSource(ItemSource):
 		return [ActionTypeItem(x) for x in self.action_types.values() if query_match(query, x.title)]
 
 class ActionAddAction(Action):
-	def run(self):
+	def _run(self):
 		selector = self.action_type.context.ui.selector()
 		selector.title = str(select_action_type_text)
 		selector.item_source = ActionTypeItemSource(self.action_type.context.action_registry.action_types)

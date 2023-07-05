@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from kwix import Context, Item
+import kwix
 from kwix.impl import BaseItem, BaseItemAlt, BaseAction, BaseActionType, BasePlugin, FuncItemSource
 from kwix.l10n import _
 from kwix.util import query_match
@@ -13,7 +13,7 @@ select_action_type_text = _('Select Action Type', ru_RU='Выбор типа д�
 select_text = _('Select').setup(ru_RU='Выбрать', de_DE='Auswählen')
 
 class ActionType(BaseActionType):
-	def __init__(self, context: Context): 
+	def __init__(self, context: kwix.Context): 
 		BaseActionType.__init__(self, context, 'add-action', str(add_action_text))
 	def create_default_action(self, title: str, description: str | None = None) -> Action:
 		return Action(self, title, description)
@@ -31,17 +31,13 @@ class Action(BaseAction):
 					self.action_type.context.action_registry.actions.append(value)
 					self.action_type.context.action_registry.save()
 			dialog.go(None, on_dialog_ready)		
-		def search(query: str) -> list[Item]:
-			return cast(list[Item], [
-				BaseItem(action_type.title, [BaseItemAlt(select_text, lambda: execute(action_type))])
-				for action_type in self.action_type.context.action_registry.action_types.values()
-			])
-
-			result: list[Item] = []
-			for x in self.action_type.context.action_registry.action_types.values():
-				action_type = x
-				if query_match(query, action_type.id, action_type.title):
-					result.append(BaseItem(action_type.title, [BaseItemAlt(select_text, lambda: execute(action_type))]))
+		def search(query: str) -> list[kwix.Item]:
+			result: list[kwix.Item] = []
+			for action_type in self.action_type.context.action_registry.action_types.values():
+				def f(action_type: kwix.ActionType = action_type):
+					if query_match(query, action_type.id, action_type.title):
+						result.append(BaseItem(action_type.title, [BaseItemAlt(select_text, lambda: execute(action_type))]))
+				f()
 			return result
 		selector.item_source = FuncItemSource(search)
 		selector.go()

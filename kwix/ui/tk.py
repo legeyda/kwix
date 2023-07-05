@@ -86,6 +86,7 @@ class Selector(ModalWindow, BaseSelector):
 	def _init_window(self):
 		self._window.bind('<Return>', cast(Any, lambda x: self._on_enter(0)))
 		self._window.bind('<Alt-KeyPress-Return>', cast(Any, lambda x: self._on_enter(1)))
+		#self._window.bind('<Ctrl-F10>')
 
 		self._mainframe = ttk.Frame(self._window)
 		self._mainframe.grid(column=0, row=0, sticky='nsew')
@@ -229,6 +230,8 @@ class Dialog(kwix.Dialog, ModalWindow):
 		self._on_ok = on_ok
 		self.builder.load(value)
 		self.show()
+	def destroy(self) -> None:
+		return ModalWindow.destroy(self)
 		
 
 

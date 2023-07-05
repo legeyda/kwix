@@ -74,9 +74,11 @@ class App(Context):
 			dialog = action.action_type.context.ui.dialog(action.action_type.create_editor)
 			def on_dialog_ok(_: Any | None) -> None:
 				dialog.destroy()
+				self.action_registry.save()
 			dialog.go(action, on_dialog_ok)
 		def delete_action(action: Action) -> None:
 			self.action_registry.actions.remove(action)
+			self.action_registry.save()
 		def search(query: str) -> list[Item]:
 			result: list[Item] = []
 			for action in self.action_registry.actions:
