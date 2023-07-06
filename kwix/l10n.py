@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Callable, Type, TypeVar
+import locale
+from typing import Callable, TypeVar
 
 TypeKey = TypeVar('TypeKey')
 TypeValue = TypeVar('TypeValue')
-
-
-def setdefault(dest: dict[Type[TypeKey], Type[TypeValue]], key: Type[TypeKey], supplier: Callable[[], Type[TypeValue]]) -> TypeValue:
+def setdefault(dest: dict[TypeKey, TypeValue], key: TypeKey, supplier: Callable[[], TypeValue]) -> TypeValue:
 	if key in dest:
 		return dest[key]
 	else:
@@ -16,7 +15,7 @@ def setdefault(dest: dict[Type[TypeKey], Type[TypeValue]], key: Type[TypeKey], s
 
 
 def get_current_locale() -> str:
-	return ''
+	return locale.getlocale()[0]
 
 
 class Text:
@@ -28,14 +27,17 @@ class Text:
 	def __str__(self) -> str:
 		return self._l10ns.get(get_current_locale(), self._default)
 
-	def default(self, default: str):
-		return Text(self._key, default, **self._l10ns)
+	def setup(self, default: str | None = None, **kwargs: str) -> Text:
+		self._default = default or self._key
+		self._l10ns.update(kwargs)
+		return self
+	
+	def apply(self, **values: str) -> str:
+		result = str(self)
+		for key, value in values.items():
+			result = result.replace('{{' + str(key) + '}}', str(value))
+		return result
 
-	def setup(self, **kwargs: str):
-		l10ns: dict[str, str] = {}
-		l10ns.update(self._l10ns)
-		l10ns.update(kwargs)
-		return Text(self._key, self._default, **l10ns)
 
 
 _texts: dict[str, Text] = {}
@@ -64,6 +66,6 @@ def scope(key: str) -> Scope:
 
 
 def test():
-	from kwix.l10n import gettext, scope, _
+	from kwix.l10n import _, gettext, scope
 	txt = _('Hello').setup(ru_RU='Привет', de_DE='Hallo')
 	print(txt)

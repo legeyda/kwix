@@ -1,15 +1,15 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 import kwix
 from kwix.impl import BaseItem, BaseItemAlt, BaseAction, BaseActionType, BasePlugin, FuncItemSource
 from kwix.l10n import _
 from kwix.util import query_match
 
-add_action_text = _('Add Action', ru_RU='Добавить действие', de_DE='Aktion hinzufuegen')
-select_action_type_text = _('Select Action Type', ru_RU='Выбор типа действия', de_DE='Aktionstyp auswählen')
+add_action_text = _('Add Action').setup(ru_RU='Добавить действие', de_DE='Aktion hinzufuegen')
+select_action_type_text = _('Select Action Type').setup(ru_RU='Выбор типа действия', de_DE='Aktionstyp auswählen')
 select_text = _('Select').setup(ru_RU='Выбрать', de_DE='Auswählen')
 
 class ActionType(BaseActionType):
@@ -27,7 +27,7 @@ class Action(BaseAction):
 			dialog = self.action_type.context.ui.dialog(action_type.create_editor)
 			def on_dialog_ready(value: Any | None) -> None:
 				dialog.destroy()
-				if isinstance(value, Action):
+				if isinstance(value, kwix.Action):
 					self.action_type.context.action_registry.actions.append(value)
 					self.action_type.context.action_registry.save()
 			dialog.go(None, on_dialog_ready)		

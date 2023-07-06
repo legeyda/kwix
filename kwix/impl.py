@@ -10,13 +10,11 @@ from kwix.util import Propty, query_match
 from kwix.stor import Stor
 
 unnamed_text = _('Unnamed').setup(ru_RU='Без названия', de_DU='Ohne Titel')
-execute_text = _('Execute').setup(ru_RU='Dsds', de_DU='Ohne Titel')
+execute_text = _('Execute').setup(ru_RU='Выполнить', de_DU='Ausführen')
 title_text = _('Title').setup(ru_RU = 'Название', de_DE='Bezeichnung')
 description_text = _('Description').setup(ru_RU = 'Описание', de_DE = 'Beschreibung')
 ok_text = _('OK')
 cancel_text = _('Cancel').setup(ru_RU='Отмена', de_DE='Abbrechen')
-execute_text = _('Execute').setup(ru_RU='Dsds', de_DU='Ohne Titel')
-
 
 
 
@@ -127,13 +125,13 @@ class BaseAction(Action):
 	def _match(self, query: str) -> bool:
 		return query_match(query or '', self.title, self.description)
 
-	def _create_default_item(self) -> BaseItem:
-		return BaseItem(self.title, [BaseItemAlt(execute_text, self._run)])
+	def _create_default_items(self) -> list[BaseItem]:
+		return [BaseItem(self.title, [BaseItemAlt(execute_text, self._run)])]
 
 	def search(self, query: str) -> list[kwix.Item]:
 		if not self._match(query):
 			return []
-		return [self._create_default_item()]
+		return self._create_default_items()
 
 	def _run(self) -> None:
 		raise NotImplementedError()

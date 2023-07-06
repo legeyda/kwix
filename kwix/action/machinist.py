@@ -1,15 +1,17 @@
 
 from typing import Any, cast
 
-import pynput
+import pynput, pyclip
 
-from kwix import Context, Action, ActionType
-from kwix import DialogBuilder
+from kwix import Action, ActionType, Context, DialogBuilder, ItemAlt
+from kwix.impl import BaseAction, BaseActionType, BaseItem, BasePlugin, BaseItemAlt
 from kwix.l10n import _
-from kwix.impl import BaseActionType, BaseAction, BasePlugin
 from kwix.util import query_match
 
 text_text = _('Text').setup(ru_RU='Текст')
+type_text = _('Type text').setup(ru_RU='Печатать текст', de_DE='Text eingeben')
+copy_text = _('Copy to clipboard').setup(ru_RU='Копировать в буфер обмена', de_DE='In die Zwischenablage kopieren')
+
 
 class MachinistActionType(BaseActionType):
 	def __init__(self, context: Context): 
@@ -49,8 +51,14 @@ class Machinist(BaseAction):
 		if query_match(query, self.text):
 			return True
 		return BaseAction._match(self, query)
-	def _run(self):
+	def _type_text(self):
 		pynput.keyboard.Controller().type(self.text)
+	def _copy_text(self):
+		pyclip.copy(self.text)
+	def _create_default_items(self) -> list[BaseItem]:
+		type_alt: ItemAlt = BaseItemAlt(type_text, self._type_text)
+		copy_alt: ItemAlt = BaseItemAlt(copy_text, self._copy_text)
+		return [BaseItem(self.title, [type_alt, copy_alt])]
 	def to_config(self):
 		result = BaseAction.to_config(self)
 		result['text'] = self.text

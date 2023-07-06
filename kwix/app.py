@@ -14,10 +14,11 @@ from kwix.l10n import _
 from kwix.stor import YamlFile
 from kwix.util import get_config_dir, get_data_dir
 
-edit_action_text = _('Edit Action').setup(ru_RU='Редактироваь действие', de_DE='Aktion Bearbeiten')
-activate_action_text = _('Activate')
-edit_action_text = _('Edit')
-delete_action_text = _('Remove')
+activate_action_text = _('Activate').setup(ru_RU='Выпуолнить', de_DE='Aktivieren')
+edit_action_text = _('Edit Action: {{action_title}} ({{action_type_title}})').setup(ru_RU='Редактироваnь действие: {{action_title}} ({{action_type_title}})', de_DE='Aktion Bearbeiten: {{action_title}} ({{action_type_title}})')
+delete_action_text = _('Remove Action: {{action_title}} ({{action_type_title}})').setup(ru_RU='Удалить действие: {{action_title}} ({{action_type_title}})', de_DE='Aktion Löschen: {{action_title}} ({{action_type_title}})')
+
+
 
 
 
@@ -86,10 +87,10 @@ class App(Context):
 					alts = list(item.alts)
 					def edit_this_action(action: Action = action):
 						edit_action(action)
-					alts.append(BaseItemAlt(edit_action_text, edit_this_action))
+					alts.append(BaseItemAlt(edit_action_text.apply(action_title=action.title, action_type_title=action.action_type.title), edit_this_action))
 					def delete_this_action(action: Action = action):
 						delete_action(action)
-					alts.append(BaseItemAlt(delete_action_text, delete_this_action))
+					alts.append(BaseItemAlt(delete_action_text.apply(action_title=action.title, action_type_title=action.action_type.title), delete_this_action))
 					result.append(BaseItem(str(item), alts))
 			return result
 		self.action_selector.item_source = FuncItemSource(search)

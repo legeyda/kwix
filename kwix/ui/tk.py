@@ -125,7 +125,7 @@ class Selector(ModalWindow, BaseSelector):
 
 	def _get_selected_item(self) -> Item | None:
 		index = self._get_selected_index()
-		if index:
+		if isinstance(index, int):
 			return self._item_list[index]
 		
 	def _get_selected_index(self) -> int | None:
