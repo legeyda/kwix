@@ -6,7 +6,8 @@ import base64
 import pyclip
 
 from kwix import Action, Context
-from kwix.impl import BaseAction, BaseActionType, BasePlugin
+from kwix.impl import BaseActionType, BasePlugin
+from kwix.action.machinist import BaseMachinist
 
 
 class Base64EncodeActionType(BaseActionType):
@@ -15,9 +16,9 @@ class Base64EncodeActionType(BaseActionType):
 	def create_default_action(self, title: str, description: str | None = None):
 		return Base64EncodeAction(self, title, description)
 
-class Base64EncodeAction(BaseAction):
-	def _run(self):
-		pyclip.copy(base64.b64encode(pyclip.paste()))
+class Base64EncodeAction(BaseMachinist):
+	def _get_text(self) -> str:
+		return base64.b64encode(pyclip.paste()).decode('UTF-8')
 
 
 class Plugin(BasePlugin):

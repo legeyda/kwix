@@ -41,24 +41,31 @@ class MachinistActionType(BaseActionType):
 		builder.on_save(save)
 
 
-
-class Machinist(BaseAction):
-	def __init__(self, action_type: ActionType, text: str, title: str | None = None, description: str | None = None):
-		title = title or 'type text "' + text + '"'
-		BaseAction.__init__(self, action_type, title, description or title)
-		self.text = text
-	def _match(self, query: str) -> bool:
-		if query_match(query, self.text):
-			return True
-		return BaseAction._match(self, query)
+class BaseMachinist(BaseAction):
+	def _get_text(self) -> str:
+		raise NotImplementedError()
 	def _type_text(self):
-		pynput.keyboard.Controller().type(self.text)
+		pynput.keyboard.Controller().type(self._get_text())
 	def _copy_text(self):
-		pyclip.copy(self.text)
+		pyclip.copy(self._get_text())
 	def _create_default_items(self) -> list[BaseItem]:
 		type_alt: ItemAlt = BaseItemAlt(type_text, self._type_text)
 		copy_alt: ItemAlt = BaseItemAlt(copy_text, self._copy_text)
 		return [BaseItem(self.title, [type_alt, copy_alt])]
+
+
+
+class Machinist(BaseMachinist):
+	def __init__(self, action_type: ActionType, text: str, title: str | None = None, description: str | None = None):
+		title = title or 'type text "' + text + '"'
+		BaseAction.__init__(self, action_type, title, description or title)
+		self.text = text
+	def _get_text(self) -> str:
+		return self.text
+	def _match(self, query: str) -> bool:
+		if query_match(query, self.text):
+			return True
+		return BaseAction._match(self, query)
 	def to_config(self):
 		result = BaseAction.to_config(self)
 		result['text'] = self.text

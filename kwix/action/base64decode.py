@@ -7,6 +7,7 @@ import pyclip
 
 from kwix import Action, Context
 from kwix.impl import BaseAction, BaseActionType, BasePlugin
+from kwix.action.machinist import BaseMachinist
 
 
 class Base64DecodeActionType(BaseActionType):
@@ -15,11 +16,9 @@ class Base64DecodeActionType(BaseActionType):
 	def create_default_action(self, title: str, description: str | None = None):
 		return Base64DecodeAction(self, title, description)
 
-
-class Base64DecodeAction(BaseAction):
-	def _run(self):
-		pyclip.copy(base64.b64decode(pyclip.paste()))
-
+class Base64DecodeAction(BaseMachinist):
+	def _get_text(self) -> str:
+		return base64.b64decode(pyclip.paste()).decode('UTF-8')
 
 class Plugin(BasePlugin):
 	def add_action_types(self):

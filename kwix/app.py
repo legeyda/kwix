@@ -47,6 +47,7 @@ class App(Context):
 
 	def init_action_registry(self):
 		self._action_registry = self.create_action_registry()
+		self._action_registry.action_types
 	def create_action_registry(self) -> ActionRegistry:
 		return BaseActionRegistry(self.action_stor)
 	

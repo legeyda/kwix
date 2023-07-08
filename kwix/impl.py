@@ -63,7 +63,7 @@ class BasePlugin(kwix.Plugin):
 
 
 class BaseSelector(kwix.Selector):
-	title = Propty(unnamed_text)
+	title = Propty(lambda: unnamed_text)
 	item_source: Propty[kwix.ItemSource] = cast(Propty[kwix.ItemSource], Propty(EmptyItemSource()))
 	def __init__(self, item_source: kwix.ItemSource = EmptyItemSource(), title: str | None = None):
 		self.item_source = item_source

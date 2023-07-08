@@ -103,7 +103,7 @@ def query_match(query: str, *contents: str):
 T = TypeVar("T")
 class Propty(Generic[T]):
 	def __init__(self, 
-	      default: T | None = None,
+	      default_supplier: Callable[[], T] | None = None,
 		  on_change: str | bool | Callable[[Any, T], None] = False,
 		  private_name: str | None = None,
 		  type: Type[T] | None = None,
@@ -111,52 +111,64 @@ class Propty(Generic[T]):
 		  required: bool = False,
 		  getter: Callable[[Any], T] | None = None,
 		  setter: Callable[[Any, T], None] | None = None):
-		self._default = default
+		if not writeable and setter:
+			raise RuntimeError('Propty: not writeable and setter')
+		if required and default_supplier:
+			raise RuntimeError('Propty: required and default_supplier')
+		self._default_supplier = default_supplier
 		self._on_change = on_change
 		self._private_name = cast(str, private_name)
 		self._type = type,
 		self._writeable = writeable
 		self._required = required
-		self._getter = getter
-		self._setter = setter
+		self._getter = getter or self._builtin_getter
+		self._setter = setter or self._builtin_setter
 	def __set_name__(self, owner: Any, name: str):
 		if self._on_change is True:
 			self._on_change = '_on_change_' + name
 		if not self._private_name:
 			self._private_name = '_' + name
-	def __get__(self, obj: Any, objtype: Any = None) -> T:
-		return self._get(obj, self._required)
-	def _get(self, obj: Any, required: bool) -> T:
-		if not obj:
-			raise AttributeError("Propty is for instances only")
-		if self._getter:
-			return self._getter(obj)
-		if not hasattr(obj, self._private_name):
-			if required:
-				raise AttributeError('required attr ' + self._private_name + ' not found', obj = obj, name = self._private_name)
-			return cast(T, self._default)
-		return getattr(obj, self._private_name)
-	def __set__(self, obj: Any, new_value: T):
+	def __set__(self, obj: Any, value: T):
 		if not obj:
 			raise AttributeError("Propty is for instances only")
 		if not self._writeable:
 			raise AttributeError('property for ' + self._private_name + ' is not writeable')
-		old_value: T = self._get(obj, False)
-		if old_value is new_value:
-			return
-		if self._setter:
-			self._setter(obj, new_value)
+		if self._on_change:
+			old_value: T = self._get_silent(obj, True)
+			if old_value is not value:
+				self._call_on_change(obj, value)
+			self._setter(obj, value)
 		else:
-			setattr(obj, self._private_name, new_value)
-			if self._on_change is False:
-				return
+			self._setter(obj, value)
+	def _call_on_change(self, obj: Any, value: T) -> None:
+		if False is self._on_change:
+			return
 		if isinstance(self._on_change, str):
 			if not hasattr(obj, self._on_change):
 				raise RuntimeError('method ' + self._on_change + ' not found')
-			func = getattr(obj, self._on_change)
+			func = cast(Callable[[T], None], getattr(obj, self._on_change))
 			if not callable(func):
 				raise RuntimeError('attr ' + self._on_change + ' expected to be callable')
-			func(new_value)
+			func(value)
 		elif callable(self._on_change):
-			self._on_change(obj, new_value)
-
+			self._on_change(obj, value)
+		else:
+			raise AssertionError('callable expected')
+	def _builtin_setter(self, obj: Any, value: T) -> None:
+		setattr(obj, self._private_name, value)
+	def __get__(self, obj: Any, objtype: Any = None) -> T:
+		result = self._builtin_getter(obj)
+		setattr(obj, self._private_name, result)
+		return result
+	def _builtin_getter(self, obj: Any) -> T:
+		return self._get_silent(obj)
+	def _get_silent(self, obj: Any, silent: bool = False) -> T:
+		if not obj:
+			raise AttributeError("Propty is for instances only")
+		if not hasattr(obj, self._private_name):
+			if self._required:
+				if silent:
+					return cast(T, None)
+				raise RuntimeError('property is required')
+			return cast(T, self._default_supplier() if self._default_supplier else None)
+		return getattr(obj, self._private_name)

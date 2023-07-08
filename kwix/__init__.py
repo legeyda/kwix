@@ -12,7 +12,7 @@ class ItemAlt:
 		raise NotImplementedError()
 
 class Item:
-	alts = Propty([], type=list[ItemAlt], writeable=False)
+	alts = Propty(list, type=list[ItemAlt], writeable=False)
 
 class ItemSource:
 	def search(self, query: str) -> list[Item]:
@@ -57,8 +57,8 @@ class Action:
 		raise NotImplementedError()
 
 class ActionRegistry(ItemSource):
-	action_types: Propty[dict[str, ActionType]] = Propty({}, writeable=False)
-	actions: Propty[list[Action]] = Propty([], writeable=False)
+	action_types: Propty[dict[str, ActionType]] = Propty(dict, writeable=False)
+	actions: Propty[list[Action]] = Propty(list, writeable=False)
 	
 	def load(self) -> None:
 		raise NotImplementedError()
@@ -98,7 +98,7 @@ class Selector:
 		raise NotImplementedError()
 	
 class Dialog:
-	title = Propty('kwix', type = str)
+	title = Propty(lambda: 'kwix', type = str)
 	def go(self, value: Any | None, on_ok: Callable[[Any | None], None] = lambda x: None) -> None:
 		raise NotImplementedError()
 	def destroy(self) -> None:

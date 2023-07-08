@@ -9,7 +9,7 @@ import yaml
 
 
 class Stor:
-	data = Propty({}, type=Any)
+	data = Propty(dict, type=Any)
 	def load(self) -> None: ...
 	def save(self) -> None: ...
 

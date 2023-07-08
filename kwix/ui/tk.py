@@ -66,7 +66,7 @@ class ModalWindow:
 	def _do_show(self):
 		self._window.title(self.title)
 		self._window.deiconify()
-		self._window.focus_set()
+		#self._window.focus_set()
 	def hide(self, *args):
 		self.parent._thread_router.exec(self._window.withdraw)
 	def destroy(self):
